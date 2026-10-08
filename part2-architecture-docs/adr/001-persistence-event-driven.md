@@ -11,7 +11,7 @@ The Order API and Batch Ingestion Worker persist orders in PostgreSQL and publis
 ## Alternatives Considered
 
 - Transactional outbox: stronger publication reliability, with a separate publisher.
-- Change data capture: streams committed changes, with additional connector and event-mapping work.
+- Service to service communication: Avoids a messaging platform, but creates tighter coupling between services and makes independent scaling more difficult.
 
 ## Rationale
 
