@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from order_management.order_book import OrderBook
 from order_management.orders import Order, Side
 
 FIXTURES = Path(__file__).parent / "fixtures" / "orders"
@@ -26,11 +25,3 @@ def orders_from_file() -> Callable[[str], list[Order]]:
             ]
 
     return load
-
-
-@pytest.fixture
-def populated_book(orders_from_file: Callable[[str], list[Order]]) -> OrderBook:
-    book = OrderBook()
-    for order in orders_from_file("multi_instrument.csv"):
-        book.add(order)
-    return book

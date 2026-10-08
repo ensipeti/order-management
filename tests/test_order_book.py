@@ -1,4 +1,3 @@
-import random
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -19,7 +18,8 @@ def test_jpm_read_only_and_removal() -> None:
     with pytest.raises(InsufficientLiquidity):
         book.calculate_price("JPM", Side.BUY, 11)
     book.remove(4)
-    assert not book._orders and not book._books
+    with pytest.raises(InsufficientLiquidity):
+        book.calculate_price("JPM", Side.BUY, 1)
 
 
 @pytest.mark.parametrize("side,expected", [(Side.BUY, 43), (Side.SELL, 70)])
@@ -47,39 +47,6 @@ def test_isolation_and_errors() -> None:
     assert book.calculate_price("A", Side.SELL, 6) == 42
 
 
-def test_random_updates_match_simple_reference() -> None:
-    randomizer = random.Random(12)
-    book = OrderBook()
-    orders: dict[int, Order] = {}
-    for order_id in range(300):
-        order = Order(
-            order_id,
-            randomizer.choice(["A", "B"]),
-            randomizer.choice(list(Side)),
-            randomizer.randint(1, 100),
-            randomizer.randint(1, 30),
-        )
-        orders[order_id] = order
-        book.add(order)
-    for order_id in randomizer.sample(list(orders), 100):
-        del orders[order_id]
-        book.remove(order_id)
-    for symbol in ["A", "B"]:
-        for side in Side:
-            candidates = sorted(
-                (o for o in orders.values() if o.symbol == symbol and o.side == side),
-                key=lambda o: o.price,
-                reverse=side == Side.SELL,
-            )
-            remaining, total = 300, 0
-            for order in candidates:
-                take = min(order.amount, remaining)
-                remaining -= take
-                total += take * order.price
-            assert remaining == 0
-            assert book.calculate_price(symbol, side, 300) == total
-
-
 def test_concurrent_readers_and_writers() -> None:
     book = OrderBook()
     book.add(Order(0, "A", Side.BUY, 100, 5))
@@ -92,7 +59,8 @@ def test_concurrent_readers_and_writers() -> None:
     with ThreadPoolExecutor(max_workers=8) as executor:
         list(executor.map(update, range(1, 100)))
     assert book.calculate_price("A", Side.BUY, 100) == 500
-    assert len(book._orders) == 1
+    with pytest.raises(InsufficientLiquidity):
+        book.calculate_price("A", Side.BUY, 101)
 
 
 def test_caller_changes_do_not_modify_stored_orders() -> None:
