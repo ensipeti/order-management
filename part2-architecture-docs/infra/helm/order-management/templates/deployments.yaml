@@ -1,0 +1,110 @@
+{{- range $component, $config := dict "order-api" .Values.api "order-book" .Values.orderBook }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-{{ $component }}
+  labels:
+    {{- include "oms.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  {{- if not $config.autoscaling.enabled }}
+  replicas: {{ $config.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $component }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        {{- include "oms.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $component }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configuration.yaml") $ | sha256sum }}
+    spec:
+      serviceAccountName: {{ $config.serviceAccount }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ $.Release.Name }}
+              app.kubernetes.io/component: {{ $component }}
+      {{- if eq $component "order-api" }}
+      initContainers:
+        {{- include "oms.cloud-sql-proxy" $ | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $component }}
+          image: {{ $config.image | quote }}
+          imagePullPolicy: IfNotPresent
+          ports: [{name: http, containerPort: 8000}]
+          securityContext:
+            {{- include "oms.security-context" $ | nindent 12 }}
+          resources:
+            {{- toYaml $config.resources | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ $.Release.Name }}-{{ if eq $component "order-api" }}writer{{ else }}book{{ end }}
+          env:
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+            {{- if eq $component "order-api" }}
+            - name: DATABASE_USER
+              value: {{ $.Values.writer.apiDatabaseUser | quote }}
+            {{- else }}
+            - name: POD_IP
+              valueFrom:
+                fieldRef: {fieldPath: status.podIP}
+            {{- end }}
+          {{- include "oms.health-probes" (dict "port" "http") | nindent 10 }}
+          volumeMounts:
+            {{- include "oms.kafka-mounts" $ | nindent 12 }}
+            - {name: temporary, mountPath: /tmp}
+            {{- if $.Values.secretManager.enabled }}
+            - {name: application-secrets, mountPath: /var/run/secrets/oms, readOnly: true}
+            {{- end }}
+        {{- if eq $component "order-api" }}
+        - name: instrument-router
+          image: {{ $config.routerImage | quote }}
+          imagePullPolicy: IfNotPresent
+          ports: [{name: router, containerPort: 8001}]
+          securityContext:
+            {{- include "oms.security-context" $ | nindent 12 }}
+          resources:
+            {{- toYaml $config.resources | nindent 12 }}
+          env:
+            - name: BOOK_DISCOVERY_ADDRESS
+              value: {{ printf "%s-order-book-headless.%s.svc.cluster.local:8000" $.Release.Name $.Release.Namespace | quote }}
+            - {name: KAFKA_PARTITIONS, value: {{ $.Values.kafka.partitions | quote }}}
+            - {name: OWNER_CACHE_TTL_SECONDS, value: "2"}
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+          {{- include "oms.health-probes" (dict "port" "router") | nindent 10 }}
+          volumeMounts:
+            - {name: temporary, mountPath: /tmp}
+        {{- end }}
+      volumes:
+        {{- if eq $component "order-api" }}
+        {{- include "oms.kafka-volumes" (dict "caSecret" $.Values.writer.kafkaCaSecret "clientSecret" $.Values.writer.kafkaClientSecret) | nindent 8 }}
+        {{- else }}
+        {{- include "oms.kafka-volumes" (dict "caSecret" $.Values.kafka.caSecret "clientSecret" $.Values.kafka.readerSecret) | nindent 8 }}
+        {{- end }}
+        - name: temporary
+          emptyDir: {sizeLimit: 64Mi}
+        {{- if $.Values.secretManager.enabled }}
+        - name: application-secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ $.Release.Name }}-{{ $component }}
+        {{- end }}
+{{- end }}

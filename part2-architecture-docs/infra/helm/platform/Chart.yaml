@@ -1,0 +1,13 @@
+apiVersion: v2
+name: oms-platform
+description: Regional Strimzi and KEDA operators used by the OMS application chart
+version: 0.1.0
+type: application
+kubeVersion: ">=1.29.0-0"
+dependencies:
+  - name: strimzi-kafka-operator
+    version: "0.47.0"
+    repository: https://strimzi.io/charts/
+  - name: keda
+    version: "2.18.1"
+    repository: https://kedacore.github.io/charts

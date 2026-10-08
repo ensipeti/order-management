@@ -1,0 +1,61 @@
+{{- if .Values.batch.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-batch-{{ required "Set a unique batch.runId for each import" .Values.batch.runId }}
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+    app.kubernetes.io/component: batch-worker
+spec:
+  backoffLimit: {{ .Values.batch.backoffLimit }}
+  activeDeadlineSeconds: 3600
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "oms.labels" . | nindent 8 }}
+        app.kubernetes.io/component: batch-worker
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ .Values.batch.serviceAccount }}
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        {{- include "oms.cloud-sql-proxy" . | nindent 8 }}
+      containers:
+        - name: batch-worker
+          image: {{ .Values.batch.image | quote }}
+          envFrom:
+            - configMapRef: {name: {{ .Release.Name }}-writer}
+          env:
+            - name: ORDER_FILE_URI
+              value: {{ required "Set batch.objectUri when batch.enabled is true" .Values.batch.objectUri | quote }}
+            - name: DATABASE_USER
+              value: {{ .Values.writer.batchDatabaseUser | quote }}
+            - {name: BATCH_CHUNK_SIZE, value: "500"}
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
+          resources:
+            {{- toYaml .Values.batch.resources | nindent 12 }}
+          securityContext:
+            {{- include "oms.security-context" . | nindent 12 }}
+          volumeMounts:
+            {{- include "oms.kafka-mounts" . | nindent 12 }}
+            - {name: temporary, mountPath: /tmp}
+            {{- if .Values.secretManager.enabled }}
+            - {name: application-secrets, mountPath: /var/run/secrets/oms, readOnly: true}
+            {{- end }}
+      volumes:
+        {{- include "oms.kafka-volumes" (dict "caSecret" .Values.writer.kafkaCaSecret "clientSecret" .Values.writer.kafkaClientSecret) | nindent 8 }}
+        - name: temporary
+          emptyDir: {sizeLimit: 64Mi}
+        {{- if .Values.secretManager.enabled }}
+        - name: application-secrets
+          csi:
+            driver: secrets-store-gke.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Release.Name }}-batch-worker
+        {{- end }}
+{{- end }}

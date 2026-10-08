@@ -1,0 +1,26 @@
+region: europe-west1
+api:
+  googleServiceAccount: oms-belgium-api@example-project.iam.gserviceaccount.com
+orderBook:
+  googleServiceAccount: oms-belgium-books@example-project.iam.gserviceaccount.com
+batch:
+  googleServiceAccount: oms-belgium-batch@example-project.iam.gserviceaccount.com
+writer:
+  # Replace with the London Kafka private bootstrap IP returned by its Service.
+  kafkaBootstrapServers: 10.10.0.10:9094
+  kafkaCaSecret: london-kafka-ca
+  kafkaClientSecret: london-order-writer
+  apiDatabaseUser: oms-belgium-api@example-project.iam
+  batchDatabaseUser: oms-belgium-batch@example-project.iam
+storage:
+  bucket: example-project-oms-belgium
+  snapshotPrefix: snapshots/europe-west1
+kafka:
+  consumerGroup: oms-books-belgium
+replication:
+  enabled: true
+  sourceBootstrapServers: 10.10.0.10:9094
+kong:
+  proxy:
+    annotations:
+      cloud.google.com/neg: '{"exposed_ports":{"80":{"name":"oms-kong-belgium"}}}'

@@ -1,0 +1,49 @@
+{{- range $name, $config := dict "order-api" .Values.api "order-book" .Values.orderBook "batch-worker" .Values.batch }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $config.serviceAccount }}
+  labels:
+    {{- include "oms.labels" $ | nindent 4 }}
+  annotations:
+    iam.gke.io/gcp-service-account: {{ $config.googleServiceAccount | quote }}
+automountServiceAccountToken: true
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-writer
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+data:
+  DATABASE_HOST: "127.0.0.1"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: orders
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.writer.kafkaBootstrapServers | quote }}
+  KAFKA_TOPIC: {{ .Values.kafka.topic | quote }}
+  KAFKA_PARTITIONS: {{ .Values.kafka.partitions | quote }}
+  KAFKA_SECURITY_PROTOCOL: SSL
+  KAFKA_CA_FILE: /var/run/kafka-ca/ca.crt
+  KAFKA_CERT_FILE: /var/run/kafka-client/user.crt
+  KAFKA_KEY_FILE: /var/run/kafka-client/user.key
+  STORAGE_BUCKET: {{ .Values.storage.bucket | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-book
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+data:
+  KAFKA_BOOTSTRAP_SERVERS: {{ .Values.kafka.bootstrapServers | quote }}
+  KAFKA_TOPIC: {{ .Values.kafka.topic | quote }}
+  KAFKA_PARTITIONS: {{ .Values.kafka.partitions | quote }}
+  KAFKA_CONSUMER_GROUP: {{ .Values.kafka.consumerGroup | quote }}
+  KAFKA_SECURITY_PROTOCOL: SSL
+  KAFKA_CA_FILE: /var/run/kafka-ca/ca.crt
+  KAFKA_CERT_FILE: /var/run/kafka-client/user.crt
+  KAFKA_KEY_FILE: /var/run/kafka-client/user.key
+  SNAPSHOT_BUCKET: {{ .Values.storage.bucket | quote }}
+  SNAPSHOT_PREFIX: {{ .Values.storage.snapshotPrefix | quote }}

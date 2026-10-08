@@ -1,0 +1,146 @@
+# Container images implement the Part 2 service contracts; their source is outside Part 1.
+region: europe-west2
+projectId: example-project
+
+api:
+  image: registry.example.com/oms/order-api:1.0.0
+  routerImage: registry.example.com/oms/instrument-router:1.0.0
+  replicas: 2
+  serviceAccount: order-api
+  googleServiceAccount: oms-london-api@example-project.iam.gserviceaccount.com
+  resources:
+    requests: {cpu: 250m, memory: 256Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    cpuPercent: 70
+
+orderBook:
+  image: registry.example.com/oms/order-book:1.0.0
+  replicas: 2
+  serviceAccount: order-book
+  googleServiceAccount: oms-london-books@example-project.iam.gserviceaccount.com
+  resources:
+    requests: {cpu: "1", memory: 1Gi}
+    limits: {cpu: "2", memory: 4Gi}
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 12
+    lagThreshold: "1000"
+
+batch:
+  enabled: false
+  image: registry.example.com/oms/batch-worker:1.0.0
+  serviceAccount: batch-worker
+  googleServiceAccount: oms-london-batch@example-project.iam.gserviceaccount.com
+  objectUri: ""
+  runId: ""
+  backoffLimit: 3
+  resources:
+    requests: {cpu: 250m, memory: 256Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+writer:
+  sqlConnectionName: example-project:europe-west2:oms-london
+  # All regions publish to London while it is the authoritative writer.
+  kafkaBootstrapServers: oms-kafka-bootstrap:9093
+  kafkaCaSecret: oms-cluster-ca-cert
+  kafkaClientSecret: order-writer
+  apiDatabaseUser: oms-london-api@example-project.iam
+  batchDatabaseUser: oms-london-batch@example-project.iam
+
+cloudSqlProxy:
+  image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.18.2
+
+storage:
+  bucket: example-project-oms-london
+  snapshotPrefix: snapshots/europe-west2
+
+kafka:
+  enabled: true
+  version: "3.9.1"
+  partitions: 12
+  topic: orders.v1
+  consumerGroup: oms-books-london
+  bootstrapServers: oms-kafka-bootstrap:9093
+  caSecret: oms-cluster-ca-cert
+  readerSecret: order-reader
+  scalerSecret: order-scaler
+  allowedSourceRanges: [10.10.0.0/20, 10.20.0.0/16, 10.40.0.0/20, 10.50.0.0/16]
+
+replication:
+  enabled: false
+  sourceBootstrapServers: ""
+  sourceAlias: london
+  targetAlias: belgium
+  sourceCaSecret: london-kafka-ca
+  sourceClientSecret: london-mirror-client
+  targetClientSecret: belgium-mirror-client
+
+identityProvider:
+  discoveryUrl: https://identity.example.com/.well-known/openid-configuration
+  audience: oms
+  readScope: oms:read
+  writeScope: oms:write
+
+# Optional files mounted by the GKE Secret Manager add-on, never secret values.
+secretManager:
+  enabled: false
+  apiSecrets: []
+  bookSecrets: []
+  batchSecrets: []
+
+kong:
+  image:
+    repository: kong/kong-gateway
+    tag: "3.11.0.2"
+  replicaCount: 2
+  enterprise:
+    enabled: true
+    license_secret: kong-enterprise-license
+  ingressController: {enabled: false}
+  env:
+    database: "off"
+    lua_ssl_trusted_certificate: system
+    plugins: bundled
+  proxy:
+    type: ClusterIP
+    annotations:
+      cloud.google.com/neg: '{"exposed_ports":{"80":{"name":"oms-kong-london"}}}'
+    http: {enabled: true, servicePort: 80, containerPort: 8000}
+    tls: {enabled: false}
+  admin: {enabled: false}
+  manager: {enabled: false}
+  portal: {enabled: false}
+  status:
+    enabled: true
+    http: {enabled: true, containerPort: 8100}
+  resources:
+    requests: {cpu: 250m, memory: 256Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          target: {type: Utilization, averageUtilization: 70}
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  podDisruptionBudget: {enabled: true, maxUnavailable: 1}
+  readinessProbe:
+    httpGet: {path: /status/ready, port: status}
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  livenessProbe:
+    httpGet: {path: /status, port: status}
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  dblessConfig:
+    configMap: oms-kong-config

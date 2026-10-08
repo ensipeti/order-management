@@ -1,0 +1,64 @@
+{{- if .Values.replication.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaMirrorMaker2
+metadata:
+  name: {{ .Release.Name }}-event-replication
+spec:
+  version: {{ .Values.kafka.version | quote }}
+  replicas: 2
+  connectCluster: {{ .Values.replication.targetAlias }}
+  clusters:
+    - alias: {{ .Values.replication.sourceAlias }}
+      bootstrapServers: {{ required "Set replication.sourceBootstrapServers" .Values.replication.sourceBootstrapServers | quote }}
+      tls:
+        trustedCertificates:
+          - secretName: {{ .Values.replication.sourceCaSecret }}
+            certificate: ca.crt
+      authentication:
+        type: tls
+        certificateAndKey:
+          secretName: {{ .Values.replication.sourceClientSecret }}
+          certificate: user.crt
+          key: user.key
+    - alias: {{ .Values.replication.targetAlias }}
+      bootstrapServers: {{ .Values.kafka.bootstrapServers | quote }}
+      tls:
+        trustedCertificates:
+          - secretName: {{ .Values.kafka.caSecret }}
+            certificate: ca.crt
+      authentication:
+        type: tls
+        certificateAndKey:
+          secretName: {{ .Values.replication.targetClientSecret }}
+          certificate: user.crt
+          key: user.key
+      config:
+        group.id: oms-mirror-connect
+        config.storage.topic: oms-mirror-config
+        offset.storage.topic: oms-mirror-offsets
+        status.storage.topic: oms-mirror-status
+        config.storage.replication.factor: 3
+        offset.storage.replication.factor: 3
+        status.storage.replication.factor: 3
+  mirrors:
+    - sourceCluster: {{ .Values.replication.sourceAlias }}
+      targetCluster: {{ .Values.replication.targetAlias }}
+      topicsPattern: {{ .Values.kafka.topic | replace "." "\\." | quote }}
+      groupsPattern: "^$"
+      sourceConnector:
+        tasksMax: {{ .Values.kafka.partitions }}
+        config:
+          replication.factor: 3
+          replication.policy.class: org.apache.kafka.connect.mirror.IdentityReplicationPolicy
+          sync.topic.acls.enabled: false
+          sync.topic.configs.enabled: false
+          offset-syncs.topic.replication.factor: 3
+      checkpointConnector:
+        config:
+          replication.policy.class: org.apache.kafka.connect.mirror.IdentityReplicationPolicy
+          emit.checkpoints.enabled: false
+          sync.group.offsets.enabled: false
+  resources:
+    requests: {cpu: "1", memory: 1Gi}
+    limits: {cpu: "2", memory: 2Gi}
+{{- end }}

@@ -1,0 +1,85 @@
+{{- if .Values.api.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Release.Name }}-order-api
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Release.Name }}-order-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: {{ .Values.api.autoscaling.cpuPercent }}}
+{{- end }}
+{{- if .Values.orderBook.autoscaling.enabled }}
+{{- if gt (int .Values.orderBook.autoscaling.maxReplicas) (int .Values.kafka.partitions) }}
+{{- fail "orderBook autoscaling.maxReplicas must not exceed kafka.partitions" }}
+{{- end }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ .Release.Name }}-kafka-scaler
+spec:
+  secretTargetRef:
+    - parameter: ca
+      name: {{ .Values.kafka.caSecret }}
+      key: ca.crt
+    - parameter: cert
+      name: {{ .Values.kafka.scalerSecret }}
+      key: user.crt
+    - parameter: key
+      name: {{ .Values.kafka.scalerSecret }}
+      key: user.key
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Release.Name }}-order-book
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ .Release.Name }}-order-book
+  minReplicaCount: {{ .Values.orderBook.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.orderBook.autoscaling.maxReplicas }}
+  pollingInterval: 15
+  cooldownPeriod: 300
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.kafka.bootstrapServers | quote }}
+        consumerGroup: {{ .Values.kafka.consumerGroup | quote }}
+        topic: {{ .Values.kafka.topic | quote }}
+        lagThreshold: {{ .Values.orderBook.autoscaling.lagThreshold | quote }}
+        offsetResetPolicy: earliest
+        allowIdleConsumers: "false"
+        tls: enable
+      authenticationRef:
+        name: {{ .Release.Name }}-kafka-scaler
+{{- end }}
+{{- range $component := list "order-api" "order-book" }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $.Release.Name }}-{{ $component }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $component }}
+{{- end }}

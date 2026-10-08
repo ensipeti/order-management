@@ -1,0 +1,11 @@
+order_id,symbol,side,amount,price
+101,MSFT,Buy,3,42
+102,MSFT,Buy,7,42
+103,MSFT,Buy,5,43
+104,MSFT,Sell,2,48
+105,MSFT,Sell,8,48
+106,MSFT,Sell,4,47
+107,NVDA,Buy,6,100
+108,NVDA,Buy,4,100
+109,NVDA,Sell,1,120
+110,NVDA,Sell,9,120

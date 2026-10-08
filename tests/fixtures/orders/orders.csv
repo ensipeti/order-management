@@ -1,0 +1,5 @@
+order_id,symbol,side,amount,price
+1,JPM,Buy,20,20
+2,GOOG,Sell,12,25
+3,AMZN,Sell,7,10
+4,JPM,Buy,10,21

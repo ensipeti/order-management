@@ -1,0 +1,12 @@
+region: europe-west2
+kafka:
+  consumerGroup: oms-books-london
+storage:
+  bucket: example-project-oms-london
+  snapshotPrefix: snapshots/europe-west2
+replication:
+  enabled: false
+kong:
+  proxy:
+    annotations:
+      cloud.google.com/neg: '{"exposed_ports":{"80":{"name":"oms-kong-london"}}}'

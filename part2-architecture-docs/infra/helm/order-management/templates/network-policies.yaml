@@ -1,0 +1,57 @@
+{{- range $component := list "order-api" "order-book" "batch-worker" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $.Release.Name }}-{{ $component }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $component }}
+  policyTypes: [Ingress, Egress]
+  {{- if eq $component "order-api" }}
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: kong}
+      ports:
+        - {protocol: TCP, port: 8000}
+        - {protocol: TCP, port: 8001}
+  {{- else if eq $component "order-book" }}
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ $.Release.Name }}
+              app.kubernetes.io/component: order-api
+      ports: [{protocol: TCP, port: 8000}]
+  {{- else }}
+  ingress: []
+  {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - ipBlock: {cidr: 10.0.0.0/8}
+      ports:
+        - {protocol: TCP, port: 9093}
+        - {protocol: TCP, port: 9094}
+        - {protocol: TCP, port: 5432}
+        {{- if eq $component "order-api" }}
+        - {protocol: TCP, port: 8000}
+        {{- end }}
+    - to:
+        - ipBlock: {cidr: 0.0.0.0/0}
+      ports: [{protocol: TCP, port: 443}]
+    - to:
+        - ipBlock: {cidr: 169.254.169.254/32}
+      ports: [{protocol: TCP, port: 80}]
+    - to:
+        - ipBlock: {cidr: 169.254.169.252/32}
+      ports: [{protocol: TCP, port: 988}]
+{{- end }}

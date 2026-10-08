@@ -1,0 +1,4 @@
+batch:
+  enabled: true
+  runId: example-import
+  objectUri: gs://your-regional-bucket/batches/your-orders.csv

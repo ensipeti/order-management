@@ -1,0 +1,173 @@
+[
+  {
+    "orders_file": "orders.csv",
+    "request": {
+      "symbol": "JPM",
+      "side": "Buy",
+      "amount": 22
+    },
+    "total_price": 442
+  },
+  {
+    "orders_file": "orders.csv",
+    "request": {
+      "symbol": "JPM",
+      "side": "Buy",
+      "amount": 30
+    },
+    "total_price": 610
+  },
+  {
+    "orders_file": "orders.csv",
+    "request": {
+      "symbol": "GOOG",
+      "side": "Sell",
+      "amount": 12
+    },
+    "total_price": 300
+  },
+  {
+    "orders_file": "orders.csv",
+    "request": {
+      "symbol": "AMZN",
+      "side": "Sell",
+      "amount": 7
+    },
+    "total_price": 70
+  },
+  {
+    "orders_file": "equal_prices.csv",
+    "request": {
+      "symbol": "MSFT",
+      "side": "Buy",
+      "amount": 11
+    },
+    "total_price": 463
+  },
+  {
+    "orders_file": "equal_prices.csv",
+    "request": {
+      "symbol": "MSFT",
+      "side": "Sell",
+      "amount": 11
+    },
+    "total_price": 527
+  },
+  {
+    "orders_file": "equal_prices.csv",
+    "request": {
+      "symbol": "NVDA",
+      "side": "Buy",
+      "amount": 10
+    },
+    "total_price": 1000
+  },
+  {
+    "orders_file": "equal_prices.csv",
+    "request": {
+      "symbol": "NVDA",
+      "side": "Sell",
+      "amount": 10
+    },
+    "total_price": 1200
+  },
+  {
+    "orders_file": "multi_instrument.csv",
+    "request": {
+      "symbol": "AAPL",
+      "side": "Buy",
+      "amount": 25
+    },
+    "total_price": 4480
+  },
+  {
+    "orders_file": "multi_instrument.csv",
+    "request": {
+      "symbol": "AAPL",
+      "side": "Sell",
+      "amount": 15
+    },
+    "total_price": 2769
+  },
+  {
+    "orders_file": "multi_instrument.csv",
+    "request": {
+      "symbol": "EURUSD",
+      "side": "Buy",
+      "amount": 1200
+    },
+    "total_price": 132200
+  },
+  {
+    "orders_file": "multi_instrument.csv",
+    "request": {
+      "symbol": "BTC-USD",
+      "side": "Buy",
+      "amount": 2
+    },
+    "total_price": 120000
+  },
+  {
+    "orders_file": "multi_instrument.csv",
+    "request": {
+      "symbol": "CUSTOM/INSTRUMENT",
+      "side": "Buy",
+      "amount": 10
+    },
+    "total_price": 370
+  },
+  {
+    "orders_file": "price_levels.csv",
+    "request": {
+      "symbol": "LEVELS",
+      "side": "Buy",
+      "amount": 13
+    },
+    "total_price": 138
+  },
+  {
+    "orders_file": "price_levels.csv",
+    "request": {
+      "symbol": "LEVELS",
+      "side": "Sell",
+      "amount": 13
+    },
+    "total_price": 304
+  },
+  {
+    "orders_file": "price_levels.csv",
+    "request": {
+      "symbol": "LEVELS",
+      "side": "Buy",
+      "amount": 24
+    },
+    "total_price": 282
+  },
+  {
+    "orders_file": "price_levels.csv",
+    "request": {
+      "symbol": "LEVELS",
+      "side": "Sell",
+      "amount": 24
+    },
+    "total_price": 534
+  },
+  {
+    "orders_file": "large_quantities.csv",
+    "request": {
+      "symbol": "LARGE",
+      "side": "Buy",
+      "amount": 1500000
+    },
+    "total_price": 1500000500000
+  },
+  {
+    "orders_file": "large_quantities.csv",
+    "request": {
+      "symbol": "LARGE",
+      "side": "Sell",
+      "amount": 3500000
+    },
+    "total_price": 6999999500000
+  }
+]

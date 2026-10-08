@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-order-api
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: order-api
+  ports:
+    - {name: orders, port: 8000, targetPort: http}
+    - {name: prices, port: 8001, targetPort: router}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-order-book
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: order-book
+  ports: [{name: http, port: 8000, targetPort: http}]
+---
+# Discovery includes recovering pods; the router must check partition readiness per pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-order-book-headless
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: order-book
+  ports: [{name: http, port: 8000, targetPort: http}]

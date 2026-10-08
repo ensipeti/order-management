@@ -1,0 +1,14 @@
+strimzi-kafka-operator:
+  watchNamespaces: [oms]
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 512Mi}
+keda:
+  operator:
+    replicaCount: 2
+  metricsServer:
+    replicaCount: 2
+  prometheus:
+    metricServer: {enabled: true}
+    operator: {enabled: true}

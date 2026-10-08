@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.kong.dblessConfig.configMap }}
+  labels:
+    {{- include "oms.labels" . | nindent 4 }}
+data:
+  kong.yml: |
+    _format_version: "3.0"
+    services:
+      - name: order-writes
+        url: http://{{ .Release.Name }}-order-api:8000
+        routes:
+          - name: order-writes
+            paths: [/orders]
+            methods: [POST, DELETE]
+            strip_path: false
+        plugins:
+          - name: openid-connect
+            config:
+              issuer: {{ .Values.identityProvider.discoveryUrl | quote }}
+              auth_methods: [bearer]
+              bearer_token_param_type: [header]
+              audience_required: [{{ .Values.identityProvider.audience | quote }}]
+              scopes_required: [{{ .Values.identityProvider.writeScope | quote }}]
+              verify_signature: true
+              verify_claims: true
+              ssl_verify: true
+              timeout: 2000
+      - name: order-reads
+        url: http://{{ .Release.Name }}-order-api:8000
+        routes:
+          - name: order-reads
+            paths: [/orders, /docs, /openapi.json]
+            methods: [GET]
+            strip_path: false
+        plugins:
+          - name: openid-connect
+            config:
+              issuer: {{ .Values.identityProvider.discoveryUrl | quote }}
+              auth_methods: [bearer]
+              bearer_token_param_type: [header]
+              audience_required: [{{ .Values.identityProvider.audience | quote }}]
+              scopes_required: [{{ .Values.identityProvider.readScope | quote }}]
+              verify_signature: true
+              verify_claims: true
+              ssl_verify: true
+              timeout: 2000
+      - name: pricing
+        url: http://{{ .Release.Name }}-order-api:8001
+        routes:
+          - name: pricing
+            paths: [/prices]
+            methods: [POST]
+            strip_path: false
+        plugins:
+          - name: openid-connect
+            config:
+              issuer: {{ .Values.identityProvider.discoveryUrl | quote }}
+              auth_methods: [bearer]
+              bearer_token_param_type: [header]
+              audience_required: [{{ .Values.identityProvider.audience | quote }}]
+              scopes_required: [{{ .Values.identityProvider.readScope | quote }}]
+              verify_signature: true
+              verify_claims: true
+              ssl_verify: true
+              timeout: 2000
+      - name: gateway-health
+        url: http://{{ .Release.Name }}-order-api:8000
+        routes:
+          - name: gateway-health
+            paths: [/health]
+            methods: [GET]
+            strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 6000
+          policy: local

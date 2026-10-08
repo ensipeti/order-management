@@ -1,0 +1,9 @@
+dependencies:
+- name: strimzi-kafka-operator
+  repository: https://strimzi.io/charts/
+  version: 0.47.0
+- name: keda
+  repository: https://kedacore.github.io/charts
+  version: 2.18.1
+digest: sha256:97df7d2d9868b89570d453280175ebc7e9caef4cc074465116a104dc5403ee82
+generated: "2026-10-08T14:51:36.869891+01:00"

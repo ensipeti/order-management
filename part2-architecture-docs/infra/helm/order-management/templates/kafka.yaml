@@ -1,0 +1,127 @@
+{{- if .Values.kafka.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: brokers
+  labels: {strimzi.io/cluster: oms}
+  annotations:
+    strimzi.io/next-node-ids: "[0,1,2]"
+spec:
+  replicas: 3
+  roles: [controller, broker]
+  storage: {type: persistent-claim, size: 100Gi, deleteClaim: false}
+  resources:
+    requests: {cpu: "1", memory: 2Gi}
+    limits: {cpu: "2", memory: 4Gi}
+  template:
+    pod:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels: {strimzi.io/cluster: oms, strimzi.io/pool-name: brokers}
+              topologyKey: topology.kubernetes.io/zone
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: oms
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    version: {{ .Values.kafka.version | quote }}
+    listeners:
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication: {type: tls}
+      - name: regional
+        port: 9094
+        type: loadbalancer
+        tls: true
+        authentication: {type: tls}
+        configuration:
+          loadBalancerSourceRanges:
+            {{- toYaml .Values.kafka.allowedSourceRanges | nindent 12 }}
+          bootstrap:
+            annotations:
+              networking.gke.io/load-balancer-type: Internal
+              networking.gke.io/internal-load-balancer-allow-global-access: "true"
+          brokers:
+            {{- range $broker := list 0 1 2 }}
+            - broker: {{ $broker }}
+              annotations:
+                networking.gke.io/load-balancer-type: Internal
+                networking.gke.io/internal-load-balancer-allow-global-access: "true"
+            {{- end }}
+    authorization: {type: simple}
+    config:
+      num.partitions: {{ .Values.kafka.partitions }}
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      auto.create.topics.enable: false
+      log.retention.hours: 168
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
+  kafkaExporter: {}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: {{ .Values.kafka.topic }}
+  labels: {strimzi.io/cluster: oms}
+spec:
+  partitions: {{ .Values.kafka.partitions }}
+  replicas: 3
+  config:
+    min.insync.replicas: 2
+    retention.ms: 604800000
+{{- range $user, $role := dict "order-writer" "writer" "order-reader" "reader" "order-scaler" "reader" "belgium-mirror-client" "mirror" "london-mirror-client" "mirror" }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: {{ $user }}
+  labels: {strimzi.io/cluster: oms}
+spec:
+  authentication: {type: tls}
+  authorization:
+    type: simple
+    acls:
+      - resource: {type: topic, name: {{ $.Values.kafka.topic }}, patternType: literal}
+        operations: [Describe, {{ if eq $role "reader" }}Read{{ else if eq $role "writer" }}Write{{ else }}Read, Write{{ end }}]
+        host: "*"
+      {{- if eq $role "writer" }}
+      - resource: {type: cluster}
+        operations: [IdempotentWrite]
+        host: "*"
+      {{- else if eq $role "reader" }}
+      - resource: {type: group, name: {{ $.Values.kafka.consumerGroup }}, patternType: literal}
+        operations: [Read, Describe]
+        host: "*"
+      {{- else }}
+      - resource: {type: group, name: oms-mirror-connect, patternType: literal}
+        operations: [Read, Describe]
+        host: "*"
+      - resource: {type: group, name: mm2-, patternType: prefix}
+        operations: [Read, Describe]
+        host: "*"
+      - resource: {type: topic, name: oms-mirror-, patternType: prefix}
+        operations: [Read, Write, Create, Describe, DescribeConfigs]
+        host: "*"
+      - resource: {type: topic, name: mm2-, patternType: prefix}
+        operations: [Read, Write, Create, Describe, DescribeConfigs]
+        host: "*"
+      - resource: {type: cluster}
+        operations: [Create, Describe, DescribeConfigs]
+        host: "*"
+      {{- end }}
+{{- end }}
+{{- end }}
