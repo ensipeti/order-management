@@ -19,4 +19,4 @@ PostgreSQL provides durable, queryable state. Kafka decouples consumers, support
 
 ## Trade-offs
 
-Database persistence and Kafka publication are independent writes; retries, duplicate-safe consumption and reconciliation are required. Consumer lag and finite retention limit freshness and replay. Event-driven checks are asynchronous; checks required before order acceptance stay on the submission path.
+Database persistence and Kafka publication are independent operations, introducing a risk of inconsistency if one succeeds and the other fails. Retries, idempotent processing and reconciliation are needed to manage these failures. Kafka also introduces additional infrastructure and operational overhead, while consumer lag and event retention limits can affect data freshness and replayability.
