@@ -8,7 +8,7 @@ The OMS needs continuous availability, demand-based scaling and zero-downtime up
 
 Run multi-zone GKE clusters in London (`europe-west2`) and Belgium (`europe-west1`), with active API/router pods, partitioned book services, batch Jobs, regional Kafka and GCS. Global ingress routes traffic to regional gateways; both regions serve local pricing.
 
-London hosts the PostgreSQL primary; Belgium holds an asynchronous replica. Order writes use London, with Kafka events replicated to Belgium. Use HPA/KEDA, readiness checks, graceful shutdown and rolling deployments. Terraform and Helm define the infrastructure.
+London hosts the PostgreSQL primary; Belgium holds an asynchronous replica. Orders from either region persist to the London PostgreSQL primary, while Kafka events are published locally and replicated between both regions. Use HPA/KEDA, readiness checks, graceful shutdown and rolling deployments. Terraform and Helm define the infrastructure.
 
 ## Alternatives Considered
 
